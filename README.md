@@ -9,24 +9,29 @@ A personal website with three sections:
 - **Vlog** — a YouTube-style grid of videos (thumbnail, title, description);
   click one to watch it in a full player
 
-Everything — your photo, posts, and videos — is something *you* upload
-through the site itself. No accounts for visitors; instead there's a single
-**owner sign-in** (a password you set the first time you use the site) that
-unlocks editing. Anyone can view the site; only you can post to it.
+There's no sign-in and no admin panel. Everything — your photo, posts, and
+videos — is published by editing plain files directly: drop an image or
+video into `uploads/`, describe a post in a `.txt` file in `posts/` or
+`vlogs/`, and restart the server. The site itself is read-only for every
+visitor, including you.
 
 ## What it's built with
 
 Plain Java, same philosophy as the birdwatch project: **zero external
 dependencies**. Just the JDK's built-in HTTP server
-(`com.sun.net.httpserver`), built-in crypto for password hashing
-(`javax.crypto`, PBKDF2), and a small hand-written JSON layer. Nothing to
+(`com.sun.net.httpserver`) and a small hand-written JSON layer. Nothing to
 download with Maven/Gradle — open the folder and run it.
 
-The one new piece of engineering here versus the birdwatch app is **HTTP
-byte-range support** for video files (see `HttpUtil.serveFileWithRangeSupport`).
-Without it, browsers can only play a video start-to-finish; with it, you can
-drag the scrubber to jump around — this is what makes the vlog player behave
-like a normal video site instead of a dumb file download.
+Two pieces of engineering worth knowing about:
+
+- **HTTP byte-range support** for video files (see
+  `HttpUtil.serveFileWithRangeSupport`). Without it, browsers can only play
+  a video start-to-finish; with it, you can drag the scrubber to jump
+  around — this is what makes the vlog player behave like a normal video
+  site instead of a dumb file download.
+- **`ContentLoader`**, which scans `posts/` and `vlogs/` for `.txt` files
+  on every startup and turns them into blog/vlog entries — this is what
+  lets you publish by editing a text file instead of using a web form.
 
 ## Running it in VS Code
 
@@ -36,7 +41,7 @@ like a normal video site instead of a dumb file download.
 2. `File → Open Folder…` → select this `personalblog` folder.
 3. Open `src/com/blog/Main.java`.
 4. Click **Run** above the `main` method (or press `F5`).
-5. Open `http://localhost:3000`.
+5. Open `http://localhost:3001`.
 
 **Option B — plain terminal:**
 
@@ -46,28 +51,57 @@ java -cp out com.blog.Main
 ```
 (Windows PowerShell: `javac -d out (Get-ChildItem -Recurse -Filter *.java -Path src).FullName`)
 
-Either way you'll see `Personal site running at http://localhost:3000`.
+Either way you'll see `Personal site running at http://localhost:3001`.
 
-## First-time setup
+The first time it runs, it will auto-create `posts/`, `vlogs/`, `uploads/`,
+and `data/` folders next to `src/` and `web/` if they don't already exist.
 
-The very first time you open the site and click **Sign in** in the top
-right, you'll be asked to *set* a password (6+ characters) rather than enter
-one — that's expected, since no owner password exists yet. After that, the
-same button becomes a normal sign-in.
+## Adding content
 
-Once signed in:
-- Click your (empty) profile photo circle, or **Edit profile**, on the About
-  tab to add your photo, bio, and social links.
-- Click **+ New post** on the Blog tab to publish a post (cover image,
-  title, short summary, and the full body text — leave a blank line
-  between paragraphs to start a new one).
-- Click **+ New vlog** on the Vlog tab to publish a video (the video file
-  itself, plus an optional thumbnail image — a saved frame from the video
-  works well; without one, the card just shows a plain dark placeholder
-  until clicked).
+**A blog post:**
 
-Sign-in lasts 30 days per browser (a cookie), so you won't need to
-re-enter your password constantly while you're actively posting.
+1. Copy the cover image into `uploads/`.
+2. Create a new `.txt` file in `posts/`, ideally named with a date prefix
+   so posts stay in order, e.g. `2026-08-03-my-trip-to-japan.txt`.
+3. Fill it in:
+
+   ```
+   Title: My trip to Japan
+   Summary: A short one-line summary shown on the blog grid.
+   Image: japan-cover.jpg
+
+   First paragraph of the post goes here.
+
+   Leave a blank line between paragraphs to start a new one. Wrap a
+   *word or phrase* in asterisks to italicize it.
+   ```
+
+   The blank line after `Image:` is required — it's what separates the
+   header from the body. `Image:` should just be the filename you copied
+   into `uploads/`, not the full path.
+4. Restart the server. The post appears on the Blog tab automatically.
+
+**A vlog post:** same idea, in the `vlogs/` folder, using `Video:` and an
+optional `Thumbnail:` instead of `Image:` (no body text):
+
+```
+Title: Japan trip vlog
+Description: A short description shown on the vlog grid.
+Video: japan-trip.mp4
+Thumbnail: japan-trip-thumb.jpg
+```
+
+**Your profile (About tab):** there's no file loader for this yet — hand-edit
+`data/profile.json` (create it if it doesn't exist) with `name`, `synopsis`,
+`instagramMain`, `instagramSpam`, `linkedin`, and `photoPath` (a path like
+`/uploads/yourphoto.jpg`, pointing at a file you've copied into `uploads/`).
+Restart the server after editing it.
+
+**Deleting something:** for a blog/vlog post, just delete its `.txt` file
+from `posts/` or `vlogs/` and restart. For the profile, edit or clear the
+fields in `data/profile.json`.
+
+See `posts/README.txt` and `vlogs/README.txt` for the full format reference.
 
 ## How it's organized
 
@@ -76,56 +110,71 @@ personalblog/
 ├── src/com/blog/
 │   ├── Main.java             HTTP server setup + all routes
 │   ├── Store.java            In-memory data store + JSON persistence
+│   ├── ContentLoader.java    Reads posts/*.txt and vlogs/*.txt into posts
 │   ├── Models.java           Profile / BlogPost / VlogPost data classes
-│   ├── SessionManager.java   Cookie-based owner sessions
-│   ├── PasswordUtil.java     PBKDF2 password hashing
-│   ├── MultipartParser.java  Parses photo/video uploads (multipart/form-data)
+│   ├── SessionManager.java   Cookie-based sessions (unused by the UI now)
+│   ├── PasswordUtil.java     PBKDF2 password hashing (unused by the UI now)
+│   ├── MultipartParser.java  Parses multipart/form-data (unused by the UI now)
 │   ├── HttpUtil.java         Cookies, JSON responses, byte-range file serving
 │   └── Json.java             Dependency-free JSON reader/writer
-├── web/                       Frontend: index.html, style.css, app.js
-├── data/                       (created automatically — your saved content)
-├── uploads/                    (created automatically — photos & videos)
+├── web/                       Frontend: index.html, style.css, app.js (read-only)
+├── posts/                      Blog posts you write as .txt files
+├── vlogs/                      Vlog posts you write as .txt files
+├── data/                       (created automatically — profile.json lives here)
+├── uploads/                    (created automatically — photos & videos you add)
 └── .vscode/                    Run/debug configuration for VS Code
 ```
 
+A few of the original files (`SessionManager`, `PasswordUtil`,
+`MultipartParser`) and the `/api/admin/*`, `POST /api/profile`,
+`POST /api/posts`, and `POST /api/vlogs` routes in `Main.java` are left over
+from the original sign-in-based version. They still work if you script
+against them directly, but nothing in the web UI calls them anymore — the
+file-based workflow above is the supported way to publish now.
+
 ## Notes & limits worth knowing
 
-- **Video upload limit is 250MB.** Large videos are currently buffered in
-  memory during upload before being written to disk — fine for occasional
-  personal uploads, but if you're regularly uploading long/high-resolution
-  video, keep an eye on the server's available RAM. (A future improvement
-  would be streaming the upload straight to disk instead of buffering it.)
-- **Photo upload limit is 8MB** per image.
-- **Sessions reset on restart** (you'll need to sign in again after
-  restarting the server), but your posts, profile, and uploaded files are
-  all safely on disk and unaffected.
-- **Data lives in `data/*.json`** and **files live in `uploads/`.** To
-  reset the whole site, stop the server and delete both folders.
-- Blog post content is stored as plain text (not HTML/Markdown) and
-  rendered with paragraph breaks preserved — this keeps things simple and
-  safe (no risk of broken or malicious HTML creeping into your posts). If
-  you want bold/italic/links within posts later, that's a natural
-  extension — see below.
+- **`.txt`-based posts and vlogs aren't editable or deletable from the
+  website** — the `.txt` file is the source of truth, so change or delete
+  the file itself and restart.
+- Posts/vlogs are re-read from `posts/`/`vlogs/` on every server start, so
+  changes to those files always need a restart to show up.
+- Ordering uses an optional `Date: YYYY-MM-DD` line in the file, or the
+  date at the start of the filename, or the file's last-modified time as a
+  fallback.
+- **Data lives in `data/profile.json`** and **files live in `uploads/`.**
+  To reset your profile, stop the server and delete or clear that file.
+- Content is stored as plain text (not full HTML/Markdown), with paragraph
+  breaks preserved and a small `*italic*` markup supported — this keeps
+  things simple and safe (no risk of broken or malicious HTML creeping
+  into your posts).
 
 ## If you deploy this publicly
 
 The same VPS + systemd + Caddy approach from the birdwatch project's README
 applies here — see that project's notes, or ask and I can walk through it
-for this app specifically. A couple of things to keep in mind once it's
-public:
+for this app specifically. A couple of things to keep in mind:
 
-- **Pick a real password** when you first sign in — it's the only thing
-  standing between "just you can post" and "anyone can post."
 - Uploaded photos/videos are public to anyone with the link, same as any
   normal website — there's no per-post privacy control.
+- If you're on a host with an ephemeral filesystem (e.g. Render's free/
+  standard plans), anything written to disk at runtime is wiped on
+  restart — but since `posts/`, `vlogs/`, and `uploads/` are now just
+  regular files you commit to your git repo rather than upload through a
+  live form, they become part of the deployment itself and survive
+  restarts and redeploys without needing a paid persistent disk. Just
+  remember to `git add`/commit/push new posts, vlogs, and images before
+  deploying.
 
 ## Ideas if you want to extend it
 
-- Rich text or Markdown formatting for blog post content
+- More markup: **bold**, links, or full Markdown for blog post content
+- A `profile.txt` loader, so the About page can be edited the same way as
+  posts/vlogs instead of hand-editing `data/profile.json`
 - Auto-generate a video thumbnail (grab a frame) instead of requiring a
-  manually uploaded one
+  manually placed one
 - Tags/categories and a simple search across posts
 - An RSS feed for the blog
-- Comments (would need to bring back a lightweight visitor-accounts system,
-  similar to the birdwatch app's login)
-# Personal-Blog
+- Remove the now-unused sign-in code (`SessionManager`, `PasswordUtil`,
+  `MultipartParser`, and the related routes in `Main.java`) if you're sure
+  you'll never want it back

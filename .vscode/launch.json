@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Main",
+      "request": "launch",
+      "mainClass": "com.blog.Main",
+      "projectName": "personalblog_ae2899f3"
+    },
+    {
+      "type": "java",
+      "name": "Launch Personal Site",
+      "request": "launch",
+      "mainClass": "com.blog.Main",
+      "projectName": "personalblog"
+    }
+  ]
+}

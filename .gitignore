@@ -1,0 +1,6 @@
+out/
+bin/
+data/
+uploads/*
+!uploads/.gitkeep
+*.class
