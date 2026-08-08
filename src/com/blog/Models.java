@@ -29,7 +29,8 @@ public final class Models {
         public long id;
         public String title;
         public String summary;
-        public String videoPath;
+        public String youtubeId;      // e.g. "dQw4w9WgXcQ" — the video is embedded from YouTube
+        public String videoPath;      // legacy: a locally uploaded video file, if any
         public String thumbnailPath;
         public String createdAt;
     }

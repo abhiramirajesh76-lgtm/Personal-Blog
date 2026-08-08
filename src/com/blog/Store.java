@@ -205,7 +205,8 @@ public final class Store {
         List<Object> arr = new ArrayList<>();
         for (VlogPost v : vlogs) {
             arr.add(Json.obj("id", v.id, "title", v.title, "summary", v.summary,
-                    "videoPath", v.videoPath, "thumbnailPath", v.thumbnailPath, "createdAt", v.createdAt));
+                    "youtubeId", v.youtubeId, "videoPath", v.videoPath,
+                    "thumbnailPath", v.thumbnailPath, "createdAt", v.createdAt));
         }
         writeFile("vlogs.json", Json.write(arr));
     }
@@ -266,6 +267,7 @@ public final class Store {
                 v.id = Json.longVal(m.get("id"));
                 v.title = Json.str(m, "title");
                 v.summary = Json.str(m, "summary");
+                v.youtubeId = Json.str(m, "youtubeId");
                 v.videoPath = Json.str(m, "videoPath");
                 v.thumbnailPath = Json.str(m, "thumbnailPath");
                 v.createdAt = Json.str(m, "createdAt");

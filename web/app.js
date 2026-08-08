@@ -192,12 +192,11 @@ function vlogCard(vlog, entryNumber) {
   thumbWrap.className = 'card-thumb-wrap';
   const img = document.createElement('img');
   img.className = 'card-thumb';
-  img.src = vlog.thumbnailPath || vlog.videoPath;
   img.alt = vlog.title;
-  if (!vlog.thumbnailPath) {
-    // No custom thumbnail — fall back to a plain dark placeholder instead
-    // of pointing an <img> at a video file, which won't render a frame.
-    img.removeAttribute('src');
+  if (vlog.thumbnailPath) {
+    img.src = vlog.thumbnailPath;
+  } else {
+    // No thumbnail available at all — fall back to a plain dark placeholder.
     img.style.background = '#1c2028';
   }
   thumbWrap.appendChild(img);
@@ -224,7 +223,8 @@ function vlogCard(vlog, entryNumber) {
 async function openVlog(id) {
   const vlog = await api(`/api/vlogs/${id}`);
   const player = $('#vlogPlayer');
-  player.src = vlog.videoPath;
+  player.src = `https://www.youtube-nocookie.com/embed/${vlog.youtubeId}?rel=0`;
+  player.title = vlog.title;
   $('#vlogDetailTag').textContent = formatDate(vlog.createdAt);
   $('#vlogDetailTitle').textContent = vlog.title;
   $('#vlogDetailSummary').textContent = vlog.summary;
@@ -235,9 +235,7 @@ async function openVlog(id) {
 
 function showVlogList() {
   const player = $('#vlogPlayer');
-  player.pause();
-  player.removeAttribute('src');
-  player.load();
+  player.src = ''; // stop playback by clearing the embed
   $('#vlogDetailView').hidden = true;
   $('#vlogListView').hidden = false;
 }

@@ -28,17 +28,20 @@ import java.util.stream.Stream;
  *
  *   Second paragraph.
  *
- * Vlog files use Video / Thumbnail / Description instead of Image / body:
+ * Vlog files use a Youtube link instead of Image / body:
  *
  *   Title: Trip to the mountains
  *   Description: A short description
- *   Video: mountains.mp4
+ *   Youtube: https://www.youtube.com/watch?v=dQw4w9WgXcQ
  *   Thumbnail: mountains-thumb.jpg
  *
- * Image/Video/Thumbnail values are plain filenames that must already exist
- * in the uploads/ folder (copy the file there yourself). An optional
- * "Date: YYYY-MM-DD" header controls ordering; without it, the file's
- * name (if it starts with YYYY-MM-DD) or last-modified time is used.
+ * "Youtube:" accepts a full watch/share/embed/shorts URL or a bare video
+ * ID. "Thumbnail:" is optional -- without one, YouTube's own thumbnail
+ * for the video is used automatically. Image/Thumbnail filenames (when
+ * given) must already exist in the uploads/ folder (copy the file there
+ * yourself). An optional "Date: YYYY-MM-DD" header controls ordering;
+ * without it, the file's name (if it starts with YYYY-MM-DD) or
+ * last-modified time is used.
  */
 public final class ContentLoader {
 
@@ -81,9 +84,10 @@ public final class ContentLoader {
                 Map<String, String> header = new LinkedHashMap<>();
                 readHeaderAndBody(file, header); // vlogs don't use a body
 
-                String video = header.get("video");
-                if (video == null || video.isBlank()) {
-                    System.err.println("Skipping " + file + ": missing a 'Video:' line");
+                String youtubeField = header.get("youtube");
+                String youtubeId = youtubeField == null ? null : extractYoutubeId(youtubeField);
+                if (youtubeId == null) {
+                    System.err.println("Skipping " + file + ": missing or unrecognized 'Youtube:' link");
                     continue;
                 }
 
@@ -91,8 +95,11 @@ public final class ContentLoader {
                 v.id = idBase + i;
                 v.title = header.getOrDefault("title", file.getFileName().toString());
                 v.summary = header.getOrDefault("description", header.getOrDefault("summary", ""));
-                v.videoPath = normalizeAssetPath(video);
-                v.thumbnailPath = normalizeAssetPath(header.get("thumbnail"));
+                v.youtubeId = youtubeId;
+                String thumbnail = header.get("thumbnail");
+                v.thumbnailPath = thumbnail != null && !thumbnail.isBlank()
+                        ? normalizeAssetPath(thumbnail)
+                        : "https://img.youtube.com/vi/" + youtubeId + "/hqdefault.jpg";
                 v.createdAt = resolveCreatedAt(header.get("date"), file);
                 result.add(v);
             } catch (IOException e) {
@@ -100,6 +107,49 @@ public final class ContentLoader {
             }
         }
         return result;
+    }
+
+    /**
+     * Pulls the 11-character video ID out of any common YouTube URL shape
+     * (watch?v=, youtu.be/, embed/, shorts/), or accepts a bare ID as-is.
+     */
+    private static String extractYoutubeId(String input) {
+        String value = input.trim();
+        if (value.matches("[A-Za-z0-9_-]{11}")) return value; // already a bare ID
+
+        try {
+            java.net.URI uri = new java.net.URI(value);
+            String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+            String path = uri.getPath() == null ? "" : uri.getPath();
+
+            if (host.contains("youtu.be")) {
+                String id = firstPathSegment(path);
+                if (id != null) return id;
+            }
+            if (host.contains("youtube.com")) {
+                if (path.startsWith("/embed/") || path.startsWith("/shorts/")) {
+                    String id = path.substring(path.indexOf('/', 1) + 1);
+                    return id.isBlank() ? null : id;
+                }
+                String query = uri.getQuery();
+                if (query != null) {
+                    for (String param : query.split("&")) {
+                        String[] kv = param.split("=", 2);
+                        if (kv.length == 2 && kv[0].equals("v")) return kv[1];
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // fall through
+        }
+        return null;
+    }
+
+    private static String firstPathSegment(String path) {
+        String trimmed = path.startsWith("/") ? path.substring(1) : path;
+        int slash = trimmed.indexOf('/');
+        String segment = slash < 0 ? trimmed : trimmed.substring(0, slash);
+        return segment.isBlank() ? null : segment;
     }
 
     private static List<Path> listTextFiles(Path folder) {
